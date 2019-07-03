@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSDO - Kendo UI</title>
+    <link rel="stylesheet" href="http://kendo.cdn.telerik.com/2019.2.514/styles/kendo.common.min.css" />
+    <link rel="stylesheet" href="http://kendo.cdn.telerik.com/2019.2.514/styles/kendo.blueopal.min.css" />
+
+    
+    <script src="http://cdn.kendostatic.com/2019.2.514/js/jquery.min.js"></script>
+    <script src="http://cdn.kendostatic.com/2019.2.514/js/kendo.all.min.js"></script>
+    <script src="https://oemobiledemo.progress.com/jsdo/progress.all.js"></script>
+    
+    <script src="http://stat01.lid/sandbox/JSDO/kjsdoTransport.js"></script>
+
+    <script>
+        $( document ).ready( function () {
+	           
+	         var serviceURI = "https://oemobiledemo.progress.com/OEMobileDemoServices";
+	         var catalogURI = "https://oemobiledemo.progress.com/OEMobileDemoServices/static/SportsService.json";
+	         var resourceName = 'Customer';
+	           
+	            jsdo.setdefault({
+				    serviceURI : serviceURI,
+				    ablSessionKey : "ablSessionKey",
+				    authenticationModel: "anonymous" // default   progress.data.Session.AUTH_TYPE_FORM
+				});
+			debugger;		
+			
+			jsdo.notauth = function(){
+			     // Run PopUP authentication (Login)
+			     jsdo.login( "", "", function(){
+                    // ......
+                    
+                  });
+			
+			};
+						
+			jsdo.login( "", "", function(){
+			    init();
+			});
+			
+			
+			/*****************************************************************************************************/
+			
+			
+			
+			var init = function(){
+					debugger;	
+					
+				var init_jsdo_customer = function(callback){
+				      debugger;
+				      jsdo( {
+			         //   serviceURI : serviceURI,
+			            catalogURI : catalogURI,
+			            resourceName : resourceName,
+			            kendo: true,  // for DataSource, default false
+			            DataSource: {
+			                serverPaging: false,
+			                serverFiltering: true,
+			                serverSorting: false,
+			                pageSize: 20,
+			                schema: {
+			                    model: {
+			                        fields: {
+			                           CustNum: { type: "integer", editable: false, },
+			                           Country: { type: "string"},
+			                           Name: { type: "string" },
+			                           Address: { type: "string"},
+			                           City: { type: "string" },
+			                           State: { type: "string" },
+			                           Contact: { type: "string" },
+			                           Phone: { type: "string" }
+			                        }
+			                        }
+			                    }
+			            },
+			            callback : callback
+			            });
+				};
+					
+					debugger;
+					
+					init_jsdo_customer(function(jsdo_transport,  DataSource){
+					  $("#grid").kendoGrid({
+			                    dataSource: DataSource,
+			                    filterable: true,
+			                    sortable: {
+			                        mode: "single",
+			                        allowUnsort: false
+			                    },
+			                    pageable: true,
+			                    height: 550,
+			                    toolbar: ["create", "save", "cancel"],
+			                    columns: [
+			                        { field:"Country",title:"Country" },
+			                        { field: "Name", title: "Name" },
+			                        { field: "State", title: "State" },
+			                        { field: "PostalCode", title: "PostalCode" },
+			                        { field: "City", title:"City"},
+			                        { command: "destroy", title: " ", width: "150px" }],
+			                    editable: true
+			                });
+					});
+			 };
+        });
+    </script>
+    
+</head>
+<body>
+<center><div>KendoUI  - DataSource Transport </div></center><br>
+   <div id ="grid"></div>
+</body>
+</html>

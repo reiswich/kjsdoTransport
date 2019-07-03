@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSDO - Kendo UI</title>
+    <link rel="stylesheet" href="http://kendo.cdn.telerik.com/2019.2.514/styles/kendo.common.min.css" />
+    <link rel="stylesheet" href="http://kendo.cdn.telerik.com/2019.2.514/styles/kendo.blueopal.min.css" />
+
+	<!-- Latest compiled and minified CSS -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+	
+	<!-- Optional theme -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+	
+
+    
+    <script src="http://cdn.kendostatic.com/2019.2.514/js/jquery.min.js"></script>
+    <script src="http://cdn.kendostatic.com/2019.2.514/js/kendo.all.min.js"></script>
+    <script src="https://oemobiledemo.progress.com/jsdo/progress.all.js"></script>
+	<!-- Latest compiled and minified JavaScript -->
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    
+    <script src="http://stat01.lid/sandbox/JSDO/kjsdoTransport.js"></script>
+    
+    
+    <script>
+    
+        $( document ).ready( function () {
+	         
+	         
+/**************************  Events  ****************************************************/
+        
+        $("#refresh").click(function(){
+            jsdo_read();
+        });
+        
+/********************************************************* Login JSDO ****************************************************************************************/  
+			 var jsdo_customer;
+			 var grid;
+	         var serviceURI = "https://oemobiledemo.progress.com/OEMobileDemoServices";
+	         var catalogURI = "https://oemobiledemo.progress.com/OEMobileDemoServices/static/SportsService.json";
+	           
+	            jsdo.setdefault({
+				    serviceURI : serviceURI,
+				    ablSessionKey : "ablSessionKey",
+				    authenticationModel: "anonymous" // default   progress.data.Session.AUTH_TYPE_FORM
+				});
+			debugger;		
+			jsdo.notauth = function(){
+			     // Run PopUP authentication (Login)
+			};
+			
+			var login = function(){
+			
+				jsdo.login( "", "", function(){
+				         // Create JSDO Transport for "Customer"
+				     jsdo({
+		                    catalogURI : catalogURI,
+		                    resourceName : "Customer",
+		                  //  kendo: true,  // for DataSource Kendo UI, default false
+		                    callback : function(jsdo_transport){
+		                        // JSDO "Customer" Object
+		                        jsdo_customer = jsdo_transport;
+		                        jsdo_read();
+		                    }
+		                  });
+	    		  });
+			}();
+			
+			
+			/************************************************************************************************************************************************************/
+			
+			var get_selected_row  = function(){
+			      var kendo_grid = $(grid).data("kendoGrid");
+                 var selected = kendo_grid.dataItem( kendo_grid.select());
+                 if (selected){
+                     return selected;
+                 }else{
+                   kendo.alert("Please select line");
+                   return false;
+                 }
+			};
+			
+			var get_DataSource = function(data){
+				 var a = new kendo.data.DataSource( {
+	                data : data,
+	                sort: { field: "Country", dir: "asc" },
+	                pageSize : data.length,
+	                 pageSize: 20,
+	            } );
+	            return  a;
+			};
+			
+			var jsdo_read = function(data, callback){
+			     kendo.ui.progress( $( "#grid" ), true );
+                 jsdo_customer.read(function(json_customer){
+                       init(get_DataSource(json_customer));
+                   });
+                 
+            };
+			
+            var jsdo_delete = function(data){
+                debugger;
+                var row = data?data:get_selected_row();
+                if (row){
+                  kendo.ui.progress( $( "body" ), true );
+                  jsdo_customer.destroy(row, function(success, err){
+                   kendo.ui.progress( $( "body" ), false );
+                  if (err){
+                     kendo.alert(err);
+                  }else{
+	                  $(".alert_deleted").fadeTo(1500, 100).slideUp(500, function(){
+	                        $(this).hide(); 
+	                     });
+                      $("#refresh").click();
+                   }
+                   });
+               }
+            };
+			
+			
+			var init = function(DataSource){
+					kendo.ui.progress( $( "#grid" ), false );
+					   grid = $("#grid").empty().kendoGrid({
+			                    dataSource: DataSource,
+			                    filterable: true,
+			                    sortable: {
+			                        mode: "single",
+			                        allowUnsort: false
+			                    },
+			                    pageable: true,
+			                    editable: "popup",
+			                    //editable: "incell",
+                                selectable: true,
+                                save: function(e) {
+                                   debugger;
+                                    kendo.ui.progress( $( "body" ), true );
+                                   jsdo_customer.save(e.model, function(data){
+                                    kendo.ui.progress( $( "body" ), false );
+                                        debugger;
+                                        $(".k-grid-cancel").click();
+                                        if (!data.id && !data.seq){
+                                             $(".alert_created").fadeTo(1500, 100).slideUp(500, function(){
+						                        $(this).hide(); 
+						                     });
+                                        }else{
+                                            $(".alert_updated").fadeTo(1500, 100).slideUp(500, function(){
+                                                $(this).hide(); 
+                                             });
+                                        }
+                                            $("#refresh").click();
+                                   });
+				                  },
+			                   remove: function(e) {
+			                        jsdo_delete(e.model);
+			                      },
+			                      
+				               saveChanges: function(e) {
+				                      e.preventDefault();
+				                      if (confirm("Wollen Sie die Position(en) wirklich speichern?")) {
+				                          that.save_changes(this, e, OJSDO_pos_grid);
+				                      }
+				                  },
+			                    selectable: "row",
+			                    height: 550,
+			                    toolbar: ["create"],
+			                    columns: [
+			                        { field:"Country",title:"Country" },
+			                        { field: "Name", title: "Name" },
+			                        { field: "State", title: "State" },
+			                        { field: "PostalCode", title: "PostalCode" },
+			                        { field: "City", title:"City"},
+			                        { command: ["edit", "destroy"], title: "&nbsp;", width: "250px" }],
+			                });
+			 };
+        });
+        
+    </script>
+    
+</head>
+	<body>
+			<div style="display:none;" class="alert alert-success alert_deleted" role="alert">
+			 
+			  <center><strong>Success!</strong> Has been <strong> deleted </strong>  successfully! </center>
+			</div>
+			
+			
+			<div style="display:none;" class="alert alert-success alert_created" role="alert">
+			 
+			  <center><strong>Success!</strong> Has been <strong> created </strong> successfully! </center>
+			</div>
+			
+			
+			<div style="display:none;" class="alert alert-success alert_updated" role="alert">
+			 
+			  <center><strong>Success!</strong> Has been <strong> updated </strong>  successfully! </center>
+			</div>
+			
+			<br>
+			<center><div>JSDO Transport </div></center>
+			<div>
+			    <button id="refresh" type="button" class="btn btn-default">Refresh</button>
+			</div>
+			
+			<br><br>
+			    <div id="grid_holder">
+				   <div id ="grid"></div>
+			    </div>
+	</body>
+</html>
