@@ -24,7 +24,7 @@
 
 ```javascript
 
- var serviceURI = "https://oemobiledemo.progress.com/OEMobileDemoServices";
+var serviceURI = "https://oemobiledemo.progress.com/OEMobileDemoServices";
 var catalogURI = "https://oemobiledemo.progress.com/OEMobileDemoServices/static/SportsService.json";
  jsdo.setdefault({
 	serviceURI : serviceURI,
@@ -157,3 +157,9 @@ init_jsdo_customer(function(jsdo_transport,  DataSource){
 					});
 
 ```
+
+### License
+
+---
+
+Released under the MIT license
