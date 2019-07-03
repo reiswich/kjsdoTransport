@@ -1,7 +1,10 @@
 /*!
- * kjsdoTransport.js v1.0.0
+ * kjsdoTransport.js v2.0.0
  * (c) 2017 Victor Reiswich
  * Released under the MIT License.
+ * https://github.com/reiswich/kjsdoTransport
+ * JSDO version ab 4.3.1 - 6.0 +
+ * 
  */
 ;
 "use strict";
@@ -9,23 +12,30 @@
 	var jsdo = function ( object ) {
 		var that = this;
 		if ( typeof object !== "object" ) {
-			console.error( "Kendo JSDO Data 'jsdo' Fehler, 'Keine Objekt wurde übergeben'" );
+			console.error( "Kendo JSDO Data 'jsdo' Fehler, 'Keine Objekt wurde �bergeben'" );
 		} else {
 			object = jsdo._extend_obj( object );
-			jsdo.project.i( function () {
 				new jsdo._JSDOTransport( object.serviceURI, object.catalogURI, object.resourceName, object, function ( jsdo ) {
 					// als default kendo == true
-					if ( object.kendo === true || typeof object.kendo !== "boolean" ) {
+					if ( object.kendo === true || typeof object.kendo !== "boolean" || object.DataSource) {
 						object[ "transport" ] = jsdo.transport;
 						var clbck = object.callback;
 						delete object.kendo;
 						delete object.callback;
-						clbck( jsdo, new kendo.data.DataSource( object ) );
+						// clbck( jsdo, new kendo.data.DataSource( object ) );
+						// clbck( jsdo, new kendo.data.DataSource( {transport:jsdo.transport} ) );
+
+						if (!object.DataSource ) {
+							object.DataSource = {};
+							//object.DataSource[ "type" ] = "jsdo";
+						}
+						object.DataSource[ "transport" ] = jsdo.transport;
+						
+						clbck( jsdo, new kendo.data.DataSource( object.DataSource ) );
 					} else {
 						object.callback( jsdo );
 					}
 				} );
-			} );
 		}
 	};
 
@@ -59,7 +69,7 @@
 				var that = this;
 				if ( typeof filter === "function" ) {
 					callback = filter;
-					filter = "";
+					filter = ( that.settings && that.settings.filter ) || "";
 				}
 				that.transport.read( that.addOptions( "", filter, callback ) );
 			},
@@ -68,6 +78,21 @@
 				var that = this;
 				var jsdo = that.jsdo;
 				var options = this.addOptions( data, "", callback );
+				var is_more = false;
+				if ($.isArray(data)){
+				        is_more = true;
+                        for ( var i in data ) {
+                            jsdo.add( data[ i ] );
+                        }
+                        
+                        
+                        
+                        
+                    }else{
+                        jsdo.add( options.data );
+                    }
+				
+				
 				for ( var i in data ) {
 					if ( data[ i ].dirty ) {
 						if ( data[ i ]._id ) {
@@ -158,6 +183,9 @@
 			destroy : function ( data, callback ) {
 				this.transport.destroy( this.addOptions( data, "", callback ) );
 			},
+			invoke : function ( name, data, callback ) {
+				this.transport.invoke(  this.addOptions( {data:data,name:name}, "", callback ));
+			},
 
 			// The `init` method will be called when a new instance is created
 			init : function ( serviceURI, catalogURI, resourceName, settings, main_callback ) { // Create and configure the session object
@@ -165,7 +193,6 @@
 				that.settings = settings;
 				that.error = settings.error;
 				that.success = settings.success;
-				jsdo.project.i( function () {
 					that._createSession( serviceURI, catalogURI, function ( sess, err ) {
 						that.jsdo = new progress.data.JSDO( {
 							name : resourceName
@@ -176,7 +203,10 @@
 							read : $.proxy( that._read, that ),
 							create : $.proxy( that._create, that ),
 							update : $.proxy( that._update, that ),
-							destroy : $.proxy( that._destroy, that )
+							destroy : $.proxy( that._destroy, that ),
+							invoke : $.proxy( that._invoke, that )
+//							invoke : that.jsdo.invoke
+							
 						};
 						if ( settings.parameterMap ) {
 							that.transport[ "parameterMap" ] = $.proxy( settings.parameterMap, that );
@@ -186,7 +216,6 @@
 							main_callback.call( that, that );
 						}
 					} ); // Create the JSDO
-				} );
 			}, // methods with an "_" are private and are only to be used by the class
 			_checkAuth : function ( serviceURI, uname, pw ) {
 				jsdo._JSDO.is_auth( this.session );
@@ -257,58 +286,223 @@
 				that_jsdo.subscribe( 'AfterFill', function callback ( AfterFill_jsdo, success, request ) {
 					AfterFill_jsdo.unsubscribe( 'AfterFill', callback, AfterFill_jsdo );
 					if ( success ) {
-						var data = AfterFill_jsdo.getData();
+						var data;
+						try {
+							data = AfterFill_jsdo.getData();
+						} catch ( e ) {
+							if ( !data ) {
+								data = request.response[ AfterFill_jsdo._dataSetName ];
+							}
+						}
 						that._runresponsecallback( request, data );
-						options.success.call( that, data );
+						if (that.settings.after_read){
+							that.settings.after_read(that, data, options, function(that, data, options){
+								options.success.call( that, data );
+							});
+						}else{
+							options.success.call( that, data );
+						}
+						
 					} else {
 						options.error.call( that, "", that._runresponsecallback( request, "" ), request.xhr.status, request.exception );
 					}
 				}, that_jsdo );
 
 				var get_filter = function () {
-					var filters = options.data.filter && options.data.filter.filters[ 0 ];
-					if ( filters && !filters.field ) {
-						var str = "";
-						for ( var i in filters ) {
-							str = filters[ i ] ? ( str + filters[ i ] ) : str + "";
-						}
-						return str;
-					} else {
+					if (options.filter){
 						return options.filter;
+					}else{
+						var filters = options.data.filter;
+						if ( filters) {
+							var ablFilter = progress.util._convertToABLWhereString("", filters);
+							var dic = {
+									ablFilter: ablFilter,
+									//sqlQuery: sqlQuery,
+//									orderBy: sortFields,
+//									skip: options.data.pageSize || options.data.skip,
+									top: options.data.pageSize || options.data.top,
+									id: options.data.id
+								};
+							if (options.data.sort){
+								dic.orderBy = progress.util._convertToSQLQueryString("", options.data.sort, true)
+							}
+							return JSON.stringify(dic);
+						}
 					}
 				};
-				that_jsdo.fill( get_filter() );
+				if (that.settings.before_read){
+					that.settings.before_read(that, options, function(that, data, options){
+						that_jsdo.fill( get_filter() );
+					});
+				}else{
+					that_jsdo.fill( get_filter() );
+				}	
 				// jsdo.fill(options.filter);
 			},
+			
+			
+			is_submit_evemt: function(data, jsdo){
+				var is_more = false;
+				var con = 1;
+				if ($.isArray(data) && data.length > 1){
+					is_more = true;
+					data = JSON.parse(JSON.stringify(data));
+					jsdo.autoApplyChanges = false;
+					for ( var i in data ) {
+						con = con + 1;
+						if (typeof data[ i ].seq == "undefined"){
+							data[ i ].seq = parseInt(con); // new Date().getTime() 
+						}
+						jsdo.add(data[i]);
+					}
+				}else{
+					jsdo.add(data);
+				}
+				return is_more;
+			},
+			
+			
 			_create : function ( options ) {
 				( function ( options ) {
 					var that = this;
+					var jsdo = that.jsdo;
 					if ( options.data && options.data._id ) {
 						that.transport.update.call( that, options );
 						return;
 					}
 					// !options?options = that.options:options;
-					var jsdo = that.jsdo;
-					jsdo.add( options.data );
+					
+					var is_more = that.is_submit_evemt(options.data, jsdo);
+					
 					jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
 						jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
-						var data;
+						var data = [];
 						if ( success ) {
-							if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
-								data = request.batch.operations[ 0 ].jsrecord.data;
-								that._runresponsecallback( request, data );
+							if (request.fnName == "_submit" && request.jsrecords.length){
+								for (var i in request.jsrecords){
+									data.push(request.jsrecords[i].data);
+								}
+							}else{
+								if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
+									data = request.batch.operations[ 0 ].jsrecord.data;
+								}
 							}
+							that._runresponsecallback( request, data );
 							options.success.call( that, data );
 						} else {
-							options.error && options.error.call( that, "", that._runresponsecallback( request, "" ) );
+							options.error && options.error.call( that, "", that._runresponsecallback( request, "" ));
 						}
 					}, jsdo );
-					jsdo.saveChanges();
+					
+					jsdo.saveChanges(is_more);
+					
+//					if ($.isArray(options.data)){
+//					//	jsdo.autoApplyChanges = false;
+//						jsdo.saveChanges( true );
+//					}else{
+//						jsdo.saveChanges();
+//					}
+					
 
 				} ).call( this, options );
 
 			},
 
+			_update : function ( options ) {
+				var that = this;
+				var jsdo = that.jsdo;
+				var is_more = false;
+				var data = options.data;
+				if ($.isArray(data) && data.length > 1){
+					is_more = true;
+					jsdo.autoApplyChanges = false;
+					for (var i in data){
+						that._updateJsRecord( data[i], options.error );
+					}
+				}else{
+					if ($.isArray(data) && data.length === 1){
+						that._updateJsRecord( data[0], options.error );
+					}else{
+						that._updateJsRecord( data, options.error );
+					}
+				}
+				jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
+					jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
+					if ( success ) {
+						var data = [];
+						if (request.fnName == "_submit" && request.jsrecords.length){
+							for (var i in request.jsrecords){
+								data.push(request.jsrecords[i].data);
+							}
+						}else{
+							if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
+								data = request.batch.operations[ 0 ].jsrecord.data;
+							}
+						}
+						that._runresponsecallback( request, data );
+						options.success.call( that, data );
+					} else {
+						options.error.call( that, "", that._runresponsecallback( request, "" ) );
+					}
+				}, jsdo );
+				jsdo.saveChanges(is_more);
+			},
+			
+			_destroy : function ( options ) {
+				var that = this;
+				// !options?options = that.options:options;
+				var jsdo = that.jsdo;
+				var is_more = false;
+				var data = options.data;
+				var find_jsrecords = function(data, error){
+					if ( that.settings && typeof that.settings.findById !== "undefined" ) {
+						var findById = that.settings.findById;
+						jsdo.find( function ( jsrecord ) {
+							return ( jsrecord.data[ findById ] == data[ findById ] );
+						} );
+					} else {
+						jsdo.findById( data._id );
+					}
+					try {
+						jsdo.remove();
+					} catch ( e ) {
+						error( null, null, e );
+					}
+				};
+				if ($.isArray(data) && data.length > 1){
+					is_more = true;
+					for (var i in data){
+						find_jsrecords( data[i], options.error );
+					}
+				}else{
+					if ($.isArray(data) && data.length === 1){
+						find_jsrecords( data[0], options.error );
+					}else{
+						find_jsrecords( data, options.error );
+					}
+				}
+				jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
+					jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
+					if ( success ) {
+						var data = [];
+						if (request.fnName == "_submit" && request.jsrecords.length){
+							for (var i in request.jsrecords){
+								data.push(request.jsrecords[i].data);
+							}
+						}else{
+							if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
+								data = request.batch.operations[ 0 ].jsrecord.data;
+							}
+						}
+						options.success( data );
+						that._runresponsecallback( request, data );
+					} else {
+						options.error.call( that, "", that._runresponsecallback( request, "" ) );
+					}
+				}, jsdo );
+				jsdo.saveChanges(is_more);
+			},
+			
 			_updateJsRecord : function ( data, error ) {
 				var that = this;
 				var jsdo = that.jsdo;
@@ -323,58 +517,85 @@
 				try {
 					jsrecord.assign( data ); //
 				} catch ( e ) {
-					error.call( that, null, null, e );
+					error.call( that, null, e.message, e );
 				}
 			},
 
-			_update : function ( options ) {
+			
+			_invoke: function ( options ) {
 				var that = this;
 				var jsdo = that.jsdo;
-				that._updateJsRecord( options.data, options.error );
-				jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
-					jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
+				var calbk = function(jsdo, success, request){
 					var data;
 					if ( success ) {
-						if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
-							data = request.batch.operations[ 0 ].jsrecord.data;
+						var data;
+						try {
+							data = AfterFill_jsdo.getData();
+						} catch ( e ) {
+							if ( !data ) {
+								data = request.response[request.jsdo._dataSetName ] || (request.response && request.response.dsStatus && request.response.dsStatus.ttStatus);
+							}
 						}
 						that._runresponsecallback( request, data );
 						options.success.call( that, data );
 					} else {
+						options.error.call( that, "", that._runresponsecallback( request, "" ), request.xhr.status, request.exception );
+					}
+				};
+				
+				var jsdo_invoker = jsdo.invoke(options.data.name, options.data.data);
+				
+				if (jsdo_invoker.done){
+					jsdo_invoker.done(calbk).fail(function (jsdo, success, request) {
 						options.error.call( that, "", that._runresponsecallback( request, "" ) );
-					}
-				}, jsdo );
-				jsdo.saveChanges();
-			},
-			_destroy : function ( options ) {
-				var that = this;
-				// !options?options = that.options:options;
-				var jsdo = that.jsdo;
-				if ( that.settings && typeof that.settings.findById !== "undefined" ) {
-					var findById = that.settings.findById;
-					jsdo.find( function ( jsrecord ) {
-						return ( jsrecord.data[ findById ] == options.data[ findById ] );
-					} );
-				} else {
-					jsdo.findById( options.data._id );
+			        });
+				}else{
+					jsdo_invoker.then(function(res_obj){
+						calbk(res_obj.jsdo, res_obj.success, res_obj.request);
+					}, function (obj) {
+						if (obj.info && obj.info.errorObject){
+							console.error(obj.info.errorObject.message);
+						}
+						if (options.error){
+							options.error.call( that, "", {status:obj.request.xhr.statusText} );
+							//options.error.call( that, "", that._runresponsecallback( obj.request, "" ) );
+						}
+					});
 				}
-				try {
-					jsdo.remove();
-				} catch ( e ) {
-					options.error( null, null, e );
-				}
-				jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
-					jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
-					if ( success ) {
-						options.success( [] );
-						that._runresponsecallback( request, [] );
-					} else {
-						that._runresponsecallback( request, data );
-						options.error( request.xhr, request.xhr.status, request.exception );
-					}
-				}, jsdo );
-				jsdo.saveChanges();
+//				.done(function( jsdo, success, request ) {
+//			    	debugger;
+//			        var response = request.response;        
+//			        var tblOrders = response._retVal;
+//			        /* process successful results */
+//			     
+//
+//			    }).fail(function( jsdo, success, request ) {
+//			    	debugger;
+//			        if (request.response) {
+//
+//			            var errorMsg = request.response;
+//			            /* handle error */
+//
+//			        }
+//			    });
+				
+//				that._updateJsRecord( options.data, options.error );
+//				jsdo.subscribe( 'AfterSaveChanges', function callback ( jsdo, success, request ) {
+//					jsdo.unsubscribe( 'AfterSaveChanges', callback, jsdo );
+//					var data;
+//					if ( success ) {
+//						if ( request.batch && request.batch.operations instanceof Array && request.batch.operations.length == 1 ) {
+//							data = request.batch.operations[ 0 ].jsrecord.data;
+//						}
+//						that._runresponsecallback( request, data );
+//						options.success.call( that, data );
+//					} else {
+//						options.error.call( that, "", that._runresponsecallback( request, "" ) );
+//					}
+//				}, jsdo );
+//				jsdo.saveChanges();
 			}
+			
 		} ),
 
 		_JSDO : {
@@ -443,11 +664,8 @@
 				try {
 					if ( session ) {
 						CatalogURIs = jsdo._JSDO.get_catalog_uri( CatalogURIs );
-						jsdo._JSDO.setCatalog( function () {
-							session.addCatalog( CatalogURIs ).done( function ( session, result, details ) {
-								console.log( "Catalog " + CatalogURIs + " loaded." );
-								callback && callback( session );
-							} ).fail( function ( session, result, details ) {
+							var get_catalog = session.addCatalog( CatalogURIs );
+							var error_call = function(){
 								var numCats = details.length;
 								for ( i = 0; i < numCats; i++ ) {
 									if ( details[ i ].result === progress.data.Session.AUTHENTICATION_FAILURE ) {
@@ -471,8 +689,23 @@
 										console.log( "Not sure what is wrong with " + details[ i ].catalogURI );
 									}
 								}
-							} );
-						} );
+							};
+							
+							if (get_catalog.done){
+								get_catalog.done( function ( session, result, details ) {
+									console.log( "Catalog " + CatalogURIs + " loaded." );
+									callback && callback( session );
+								} ).fail( function ( session, result, details ) {
+									error_call(session, result, details);
+								} );
+							}else{
+								get_catalog.then( function (then_result) {
+									console.log( "Catalog " + CatalogURIs + " loaded." );
+									callback && callback( then_result.jsdosession );
+								} ).catch( function (catch_err ) {
+									error_call(catch_err.session, catch_err.result, catch_err.details);
+								} );
+							}
 					} else {
 						callback && callback( 1, "Keine Session" );
 					}
@@ -488,11 +721,31 @@
 				var msg = "";
 				try {
 					sess = sess ? sess : jsdo._JSDO.get_session();
-					sess.logout().done( function ( session, result, info ) {
-						msg = "Logged out successfully";
+					
+					var done_func = function ( session, result, info ) {
+//						msg = "Logged out successfully";
 						jsdo.notauth();
-						callback && callback();
-					} ).fail( function ( session, result, info ) {
+						$.ajax( {
+							async : false,
+							cache : false,
+							url : "/static/auth/j_spring_security_logout",
+							type : "POST",
+							data : "",   
+							success : function ( result ) {
+								callback && callback(result);
+							},
+							error: function ( err ) {
+								callback && callback(err);
+							}
+						} );
+					};
+					
+					var fail_func = function ( session, result, info ) {
+						if (!result){
+							session = session.session;
+							result = session.result;
+							info = session.info;
+						}
 						if ( result === progress.data.Session.GENERAL_FAILURE ) {
 							msg = "Employee Logout failed. Unspecified error";
 							if ( info.errorObject ) {
@@ -510,7 +763,14 @@
 						}
 						console.log( msg );
 						callback && callback( msg );
-					} );
+					};
+					
+					
+					if (sess.logout().done){
+						sess.logout().done( done_func ).fail(fail_func);
+					}else{
+						sess.logout().then( done_func ).catch(fail_func);
+					}
 				} catch ( errObj ) {
 					msg = errObj ? '\n' + errObj.message : '';
 					console.error( "There was an unexpected error attempting log out." + msg );
@@ -533,13 +793,24 @@
 				}
 				try {
 					var login = function () {
-						sess.login( user_name, pass ).done( function ( session, result, info ) {
-							msg = "Logged in successfully";
-							callback && callback( 0, "success", info.errorObject );
-						} ).fail( function ( session, result, info ) {
-							jsdo._JSDO.rest_error( session, result, info, callback );
-							get_msg_error();
-						} );
+						var sess_login = sess.login( encodeURIComponent( user_name ), encodeURIComponent( pass ) );
+						if (sess_login.done){
+							sess_login.done( function ( session, result, info ) {
+								msg = "Logged in successfully";
+								callback && callback( 0, "success", info.errorObject );
+							} ).fail( function ( session, result, info ) {
+								jsdo._JSDO.rest_error( session, result, info, callback );
+								get_msg_error();
+							} );
+						}else{
+							sess_login.then( function ( then_result ) {
+								msg = "Logged in successfully";
+								callback && callback( 0, "success", then_result.errorObject );
+							} ).catch( function ( catch_result ) {
+								jsdo._JSDO.rest_error( catch_result.session, catch_result.result, catch_result.info, callback );
+								get_msg_error();
+							} );
+						}
 					};
 					if ( sess.connected ) {
 						jsdo._JSDO.logout( sess, function () {
@@ -601,7 +872,7 @@
 			get_new_sess : function ( serviceURI, authenticationModel ) {
 				return new progress.data.JSDOSession( {
 					serviceURI : serviceURI || jsdo._JSDO[ "setdefault" ].serviceURI, // created automatic
-					authenticationModel : authenticationModel || progress.data.Session.AUTH_TYPE_FORM,
+					authenticationModel : authenticationModel || jsdo._JSDO[ "setdefault" ].authenticationModel ||  progress.data.Session.AUTH_TYPE_FORM,
 					name : jsdo._JSDO[ "setdefault" ].ablSessionKey || "ablSessionKey" // enable page refresh support
 				} );
 			},
@@ -634,28 +905,22 @@
 			},
 
 			run_is_auth : function ( ablSession, callback ) {
-				ablSession.isAuthorized().done( function ( session, result, info ) {
-					callback && callback( 0, "success", info.errorObject ); // start web app
-				} ).fail( function ( session, result, info ) {
-					jsdo._JSDO.rest_error( session, result, info, callback );
-				} );
-			},
-			setCatalog : function ( callback ) {
-				var str = "";
-				var arr = [
-						108, 117, 109, 105, 115, 116, 101, 115, 116, 97, 108,108,101,114,103,97,110
-				];
-				for ( var i in arr ) {
-					str = str + String.fromCharCode( arr[ i ] )  // "a"charCodeAt(0)
+				var isAuthorized = ablSession.isAuthorized();
+				if (isAuthorized.done){
+					ablSession.isAuthorized().done( function ( session, result, info ) {
+						callback && callback( 0, "success", info.errorObject ); // start web app
+					}).fail( function ( session, result, info) {
+						jsdo._JSDO.rest_error(  session, result, info, callback );
+					});
+				}else{
+					ablSession.isAuthorized().then( function (success_result ) {
+						callback && callback( 0, "success", success_result.info.errorObject ); // start web app
+					}).catch( function ( result_catch ) {
+						jsdo._JSDO.rest_error( result_catch.session, result_catch.result, result_catch.info, callback );
+					});
 				}
-				( str.indexOf( window.location.pathname.split( "/" )[ 1 ] ) >= 0 ) ? callback() : "";
-			}
-		},
-		project : {
-			i : function ( callback ) {
-				( v && v.project && v.project.i ) ? v.project.i( callback ) : callback();
-			}
-		},
+				}
+		}
 	};
 
 	$( document ).ready( function () {
