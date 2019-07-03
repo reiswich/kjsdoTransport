@@ -27,10 +27,10 @@
  var serviceURI = "https://oemobiledemo.progress.com/OEMobileDemoServices";
 var catalogURI = "https://oemobiledemo.progress.com/OEMobileDemoServices/static/SportsService.json";
  jsdo.setdefault({
-				    serviceURI : serviceURI,
-				    ablSessionKey : "ablSessionKey",
-				    authenticationModel: "anonymous" // default   progress.data.Session.AUTH_TYPE_FORM
-				});
+	serviceURI : serviceURI,
+	ablSessionKey : "ablSessionKey",
+	authenticationModel: "anonymous" // default   progress.data.Session.AUTH_TYPE_FORM
+ });
 
 
 jsdo.login( user_name, pass, callback ( err, msg ))
@@ -47,12 +47,12 @@ jsdo.notauth = function(){
 // isAuthorized
 // Determines if the current JSDOSession object has authorized access to the web application specified by its serviceURI property setting.
 jsdo.isauth( function ( status, error_info ) {
-			if ( status ) {
-				l.session.login_js.open();
-			} else {
-				that.logged = true;
-				l.session.login_js.get_userName.call( that );
-			}
+	if ( status ) {
+		l.session.login_js.open();
+	} else {
+		that.logged = true;
+		l.session.login_js.get_userName.call( that );
+		}
 });
 
 // ********************* Without Kendo Ui Datasource *********************
@@ -60,13 +60,13 @@ jsdo.isauth( function ( status, error_info ) {
 // Init Customer
 var init_Customer = function(callback){
   jsdo({
-	  	      catalogURI : catalogURI,
-		        resourceName : "Customer",
-		        kendo: true,  // for DataSource Kendo UI, default false
-		        callback : function(jsdo_customer){
-		              // JSDO "Customer" Object
-		             callback(jsdo_customer);
-		        }
+	catalogURI : catalogURI,
+	resourceName : "Customer",
+	kendo: false,  // for DataSource Kendo UI, default false
+	callback : function(jsdo_customer){
+		      // JSDO "Customer" Object
+		      callback(jsdo_customer);
+	}
   });
 }
 
@@ -106,8 +106,7 @@ init_Customer(function(jsdo_customer){
 
 // Init JSDO wthi Kendo Ui Datasource
 var init_jsdo_customer = function(callback){
-				      debugger;
-				      jsdo( {
+				jsdo( {
 			         //   serviceURI : serviceURI,
 			            catalogURI : catalogURI,
 			            resourceName : resourceName,
