@@ -1,4 +1,4 @@
-### kjsdoTransport - library is based on JSDO library for Progress Data Object Services - https://github.com/progress/JSDO
+### kjsdoTransport - is based on JSDO library for Progress Data Object Services - https://github.com/progress/JSDO
 
 
 # Live Demo
