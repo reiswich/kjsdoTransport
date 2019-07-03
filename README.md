@@ -62,6 +62,7 @@ var init_Customer = function(callback){
   jsdo({
 	catalogURI : catalogURI,
 	resourceName : "Customer",
+    //  findById: "Name", // Default _id
 	kendo: false,  // for DataSource Kendo UI, default false
 	callback : function(jsdo_customer){
 		      // JSDO "Customer" Object
@@ -74,6 +75,11 @@ var init_Customer = function(callback){
 init_Customer(function(jsdo_customer){
 
   // Read Customer
+  var filter =  '{"ablFilter":"Name=Hoops", "orderBy":"Name"}',
+  jsdo_customer.read(filter, function(data_customer){
+    .........
+  });
+  // Get all customer
   jsdo_customer.read(function(data_customer){
     .........
   });
