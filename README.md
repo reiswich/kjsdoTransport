@@ -89,7 +89,7 @@ init_Customer(function(jsdo_customer){
   });
   
   // if JSON with _id, then update, else create
-  jsdo_customer.save({... JSON ....} or [{...}, {...}, {...} ...], function(data_customer){
+  jsdo_customer.save({... JSON ....}, function(data_customer){
       .........
   });
   
