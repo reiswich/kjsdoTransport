@@ -1,5 +1,12 @@
 ### kjsdoTransport - is based on JSDO library for Progress Data Object Services - https://github.com/progress/JSDO
 
+The JSDO is a JavaScript implementation of the CDO Specification published by Progress Software Corporation. The JSDO is a free and open-source full-featured implementation that can be used in web, mobile web and hybrid mobile apps. Progress® Data Objects, which include the JSDO on the client, represent the Progress-released implementation of Cloud Data Objects. For more information on the latest release, see the Progress Data Objects Guide and Reference.
+
+https://github.com/CloudDataObject/JSDO#readme 
+
+
+
+
 
 # Live Demo
 
