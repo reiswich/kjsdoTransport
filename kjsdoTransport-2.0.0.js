@@ -512,7 +512,21 @@
 						return ( jsrecord.data[ findById ] == data[ findById ] );
 					} );
 				} else {
-					var jsrecord = jsdo.findById( data._id );
+					debugger;
+					if (!data._id){
+						var ttname = Object.keys(data)[0];
+						var jsrecord = jsdo[ttname].findById( data[ttname]._id );
+//						var jsrecord = jsdo[data.key].findById( data._id );
+						try {
+							jsrecord.assign(  data[ttname] ); //
+						} catch ( e ) {
+							error.call( that, null, e.message, e );
+						}
+						return;
+					}else{
+						var jsrecord = jsdo.findById( data._id );
+					}
+					
 				}
 				try {
 					jsrecord.assign( data ); //
